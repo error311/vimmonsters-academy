@@ -546,14 +546,6 @@ import {
     handleDrillInsertKey,
   } = app;
 
-  Object.assign(app, createInputRuntime(app));
-  const {
-    handleCommandKey,
-    handleRenameKey,
-    normalizeKey,
-    handleTreeKey,
-  } = app;
-
   Object.assign(app, createScenes(app));
   const {
     drawOverworld,
@@ -623,6 +615,14 @@ import {
     return sections[Math.max(0, Math.min(state.tree.selected, sections.length - 1))];
   }
   app.selectedTreeSection = selectedTreeSection;
+
+  Object.assign(app, createInputRuntime(app));
+  const {
+    handleCommandKey,
+    handleRenameKey,
+    normalizeKey,
+    handleTreeKey,
+  } = app;
 
   function mapRows(mapName) {
     if (state.randomizedMaps && state.randomizedMaps[mapName]) {
