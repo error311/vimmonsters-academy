@@ -14,5 +14,6 @@ pnpm-debug.log*
 *.stackdump
 .env
 .env.*
+!.env.example
 docs/media/.tmp/
 competition-state.json
