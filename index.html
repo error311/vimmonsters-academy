@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VimMonsters Academy</title>
+    <link rel="stylesheet" href="./src/style.css">
+  </head>
+  <body>
+    <main class="layout">
+      <section class="stage-card">
+        <header class="stage-header">
+          <div>
+            <p class="eyebrow">VimMonsters Academy</p>
+            <h1>Creature training, but every lesson is a Vim motion.</h1>
+          </div>
+          <div class="stage-meta">
+            <span id="area">Home Row House</span>
+            <span id="lesson-title">Lesson 1: Home Row Movement</span>
+          </div>
+        </header>
+
+        <div class="canvas-wrap">
+          <canvas
+            id="game"
+            width="960"
+            height="720"
+            aria-label="VimMonsters Academy game screen"
+          ></canvas>
+        </div>
+
+        <div class="footer-bar">
+          <span><code>o</code> opens the in-game VimTree</span>
+          <span><code>:</code> opens commands</span>
+          <span><code>m</code> toggles audio</span>
+          <span><code>Enter</code> drills into the focused tree panel</span>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./src/game.js"></script>
+  </body>
+</html>

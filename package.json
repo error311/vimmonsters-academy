@@ -1,0 +1,30 @@
+{
+  "name": "vimmonsters-academy",
+  "version": "1.0.0",
+  "description": "A browser game that teaches Vim motions through a retro creature-catching RPG.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "vim",
+    "game",
+    "education",
+    "javascript",
+    "canvas",
+    "rpg"
+  ],
+  "scripts": {
+    "serve": "node server.js",
+    "build:assets": "node scripts/build-bitmaps.mjs",
+    "build:readme-media": "node scripts/build-readme-media.mjs",
+    "check": "node --check src/content.js && node --check src/state.js && node --check src/drills.js && node --check src/drill-runtime.js && node --check src/battle-challenges.js && node --check src/battle.js && node --check src/input.js && node --check src/progression.js && node --check src/overworld.js && node --check src/render.js && node --check src/persistence.js && node --check src/scene-tree.js && node --check src/scene-drill.js && node --check src/scene-battle.js && node --check src/scenes.js && node --check src/game.js && node --check server.js",
+    "lint": "eslint .",
+    "smoke": "node scripts/runtime-smoke.mjs && node scripts/api-smoke.mjs"
+  },
+  "devDependencies": {
+    "eslint": "^9.37.0"
+  }
+}

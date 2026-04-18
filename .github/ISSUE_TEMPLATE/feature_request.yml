@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest a new lesson, creature, UX improvement, or gameplay idea.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What is missing or what could be improved?
+      placeholder: The game teaches X well, but Y is still confusing.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      placeholder: Describe the feature you want to add.
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Lesson content
+        - Battle design
+        - UX / onboarding
+        - Art / presentation
+        - Modding / docs
+        - Performance / tech
+  - type: textarea
+    id: teaching_value
+    attributes:
+      label: Vim or learning value
+      description: If relevant, explain how this helps teach Vim or helps people learn from the codebase.
+      placeholder: This would teach ...
+  - type: textarea
+    id: extra
+    attributes:
+      label: Extra context
+      placeholder: Mockups, references, or related issues.
+
