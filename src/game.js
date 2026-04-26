@@ -41,6 +41,9 @@ import { createCanvasRenderer } from "./render.js";
 import { createInputRuntime } from "./input.js";
 import { createScenes } from "./scenes.js";
 import { loadBitmapAssets } from "./bitmap-assets.js";
+import { buildDefaultGameState, createGameRunRuntime } from "./game-run-runtime.js";
+import { createGameWorldHelpers } from "./game-world-helpers.js";
+import { createGameMotionRuntime } from "./game-motion-runtime.js";
 import {
   applyLeaderboardEntries,
   fetchLeaderboardEntries,
@@ -93,109 +96,44 @@ import {
   } = createCanvasRenderer(ctx, COLORS);
   const bitmapAssets = await loadBitmapAssets();
 
-  // State, saves, leaderboard, and run progress.
-  function applyLeaderboard(entries) {
-    applyLeaderboardEntries(state, entries);
-    saveMeta();
-  }
-
-  async function loadLeaderboardFromApi() {
-    try {
-      const entries = await fetchLeaderboardEntries(window.fetch.bind(window));
-      if (!entries) {
-        return;
-      }
-      applyLeaderboard(entries);
-      renderUi();
-    } catch {
-      // Ignore and keep local fallback state.
-    }
-  }
-
-  async function requestServerRunFromApi() {
-    try {
-      return await requestRunSession(window.fetch.bind(window));
-    } catch {
-      return null;
-    }
-  }
-
-  async function submitRunToApi(entry) {
-    try {
-      const result = await submitLeaderboardRun(window.fetch.bind(window), {
-        runId: entry.id,
-        runName: entry.name,
-        score: entry.score,
-        timeMs: entry.timeMs,
-        seed: entry.seed,
-        startedAt: state.runStartedAt,
-        token: state.runToken,
-      });
-      if (result.ok && Array.isArray(result.entries)) {
-        applyLeaderboard(result.entries);
-        renderUi();
-        return true;
-      }
-      return result.error || "Leaderboard submission failed.";
-    } catch {
-      return "Leaderboard submission failed.";
-    }
-  }
-
-  async function renameRunOnApi(nextName) {
-    try {
-      const result = await renameLeaderboardRun(window.fetch.bind(window), {
-        runId: state.runId,
-        runName: nextName,
-        startedAt: state.runStartedAt,
-        token: state.runToken,
-      });
-      if (result.ok && Array.isArray(result.entries)) {
-        applyLeaderboard(result.entries);
-        renderUi();
-        return true;
-      }
-      return result.error || "Leaderboard rename failed.";
-    } catch {
-      return "Leaderboard rename failed.";
-    }
-  }
-
-  function defaultState(seed) {
-    return createDefaultState(seed, loadMeta(window.localStorage, META_KEY));
-  }
-
-  const state = defaultState();
+  const state = buildDefaultGameState({
+    createDefaultState,
+    loadMeta,
+    storage: window.localStorage,
+    metaKey: META_KEY,
+  });
   ctx.imageSmoothingEnabled = false;
-
-  function applyRunSessionToState(target, run) {
-    if (!run || typeof run.seed !== "number" || !run.runId) {
-      return false;
-    }
-    target.runId = String(run.runId);
-    target.runToken = typeof run.token === "string" ? run.token : "";
-    target.runSeed = run.seed;
-    target.runStartedAt = typeof run.startedAt === "number" ? run.startedAt : Date.now();
-    target.finishedAt = null;
-    target.runComplete = false;
-    target.runLogged = false;
-    target.houseLesson = buildHouseLesson(target.runSeed);
-    target.houseTrailVisited = [cellKey(target.houseLesson.start.x, target.houseLesson.start.y)];
-    target.randomizedMaps = buildRandomizedMaps(target.runSeed, target.houseLesson.rows);
-    return true;
-  }
-
-  function saveMeta() {
-    try {
-      saveMetaToStorage(window.localStorage, META_KEY, state);
-    } catch {
-      // Ignore local storage write failures.
-    }
-  }
 
   function activeMonster() {
     return state.party[state.activeIndex];
   }
+
+  const {
+    shortSeed,
+    houseStageIndex,
+    currentHouseTargetLabel,
+    houseRouteKeys,
+    houseCurrentSegmentKeys,
+    housePathTone,
+    markHouseTrailPosition,
+    mapRows,
+    tileAt,
+    isWalkable,
+    isGateTile,
+    mapOffset,
+    directionVector,
+    reverseDirection,
+    monsterPalette,
+  } = createGameWorldHelpers({
+    state,
+    maps: MAPS,
+    species: SPECIES,
+    cellKey,
+    screenWidth: SCREEN_WIDTH,
+    tileSize: TILE_SIZE,
+    viewTop: VIEW_TOP,
+    viewHeight: VIEW_HEIGHT,
+  });
 
   // Shared runtime surface passed into the split modules. This keeps dependency
   // wiring in one place so learners can see what the engine exposes.
@@ -265,16 +203,11 @@ import {
     drawBitmap,
     drawBitmapFrame,
     bitmapAssets,
-    defaultState,
-    saveMeta,
     activeMonster,
     setMessage,
     setFx,
     checkMilestones,
-    parseActionKey,
     openRenameMode,
-    resetRun,
-    commitRunName,
     mapRows,
     mapOffset,
     monsterPalette,
@@ -321,101 +254,8 @@ import {
     }
   }
 
-  function shortSeed() {
-    return String(state.runSeed).slice(-6);
-  }
-
-  function houseStageIndex() {
-    if (!state.flags.runeH) {
-      return 0;
-    }
-    if (!state.flags.runeJ) {
-      return 1;
-    }
-    if (!state.flags.runeK) {
-      return 2;
-    }
-    if (!state.flags.runeL) {
-      return 3;
-    }
-    return 4;
-  }
-
-  function currentHouseTargetLabel() {
-    return ["H rune", "J rune", "K rune", "L rune", "exit door"][houseStageIndex()];
-  }
-
-  function houseRouteKeys(stage) {
-    const keys = new Set();
-    for (let index = 0; index <= stage; index += 1) {
-      ((state.houseLesson && state.houseLesson.segments[index]) || []).forEach((key) => {
-        keys.add(key);
-      });
-    }
-    return keys;
-  }
-
-  function houseCurrentSegmentKeys(stage) {
-    return new Set(
-      ((state.houseLesson && state.houseLesson.segments[Math.min(stage, state.houseLesson.segments.length - 1)]) || [])
-    );
-  }
-
-  function housePathTone(x, y) {
-    if (state.map !== "house") {
-      return "normal";
-    }
-    const key = cellKey(x, y);
-    const stage = houseStageIndex();
-    const active = houseCurrentSegmentKeys(stage);
-    const cleared = houseRouteKeys(stage - 1);
-    if (active.has(key) && !state.houseTrailVisited.includes(key)) {
-      return "active";
-    }
-    if (active.has(key) || cleared.has(key) || state.houseTrailVisited.includes(key)) {
-      return "cleared";
-    }
-    return "future";
-  }
-
-  function markHouseTrailPosition(x, y) {
-    if (state.map !== "house") {
-      return;
-    }
-    const key = cellKey(x, y);
-    const allowed = houseRouteKeys(houseStageIndex());
-    if (!allowed.has(key) && !state.houseTrailVisited.includes(key)) {
-      return;
-    }
-    if (!state.houseTrailVisited.includes(key)) {
-      state.houseTrailVisited.push(key);
-    }
-  }
-
   function elapsedMs() {
     return (state.finishedAt || Date.now()) - state.runStartedAt;
-  }
-
-  function speedBonusForRun(ms) {
-    return Math.max(0, 2200 - Math.floor(ms / 1000) * 10);
-  }
-
-  async function beginNewRun(reason) {
-    const fresh = defaultState();
-    Object.assign(state, fresh);
-    const run = await requestServerRunFromApi();
-    if (run) {
-      applyRunSessionToState(state, run);
-    }
-    setMessage(
-      reason || `New academy seed ${state.runSeed}. Learn fast, catch smart, and beat your best time.`,
-      "player"
-    );
-    renderUi();
-  }
-
-  function resetRun(reason) {
-    void beginNewRun(reason);
   }
 
   function syncFollowerTrail() {
@@ -454,41 +294,6 @@ import {
     syncFollowerTrail();
     setFx("reward", "hud", 1400);
     setMessage(`${SPECIES[chosenId].name} joined you. It will follow in the field, and [ ] or VimTree party focus will swap the follower later.`, chosenId);
-  }
-
-  function finishRun() {
-    if (state.runLogged) {
-      return;
-    }
-    const duration = elapsedMs();
-    const speedBonus = speedBonusForRun(duration);
-    state.finishedAt = Date.now();
-    state.runComplete = true;
-    state.runLogged = true;
-    state.score += speedBonus;
-    const entry = {
-      id: state.runId,
-      name: state.runName || "anon",
-      score: state.score,
-      timeMs: duration,
-      seed: state.runSeed,
-    };
-    applyLeaderboard(
-      [...state.leaderboard.filter((item) => item.id !== state.runId), entry]
-    );
-    void submitRunToApi(entry).then((result) => {
-      if (result !== true) {
-        setMessage(
-          `Run clear in ${formatDuration(duration)}. Speed bonus +${speedBonus}. Public leaderboard submit failed: ${result} Press R to name this run, then use :q for a new seed.`,
-          "macrobat"
-        );
-      }
-    });
-    setFx("reward", "hud", 2600, { persistent: true });
-    setMessage(
-      `Run clear in ${formatDuration(duration)}. Speed bonus +${speedBonus}. Press R to name this run, then use :q for a new seed.`,
-      "macrobat"
-    );
   }
 
   const progression = createProgressionRuntime({
@@ -539,25 +344,43 @@ import {
     handleBattleKey,
   } = app;
 
-  Object.assign(app, createDrillRuntime(app));
   const {
-    handleDrillKey,
-    handleDrillPromptKey,
-    handleDrillInsertKey,
-  } = app;
+    defaultState,
+    saveMeta,
+    resetRun,
+    commitRunName,
+    finishRun,
+    loadLeaderboardFromApi,
+    beginNewRun,
+  } = createGameRunRuntime({
+    state,
+    storage: window.localStorage,
+    metaKey: META_KEY,
+    fetchImpl: window.fetch.bind(window),
+    createDefaultState,
+    loadMeta,
+    applyLeaderboardEntries,
+    fetchLeaderboardEntries,
+    requestRunSession,
+    submitLeaderboardRun,
+    renameLeaderboardRun,
+    saveMetaToStorage,
+    buildHouseLesson,
+    buildRandomizedMaps,
+    cellKey,
+    elapsedMs,
+    formatDuration,
+    renderUi,
+    setMessage,
+    setFx,
+  });
 
-  Object.assign(app, createScenes(app));
-  const {
-    drawOverworld,
-    drawRunStrip,
-    drawBattle,
-    drawDialogue,
-    drawEncounterTransition,
-    drawTreeOverlay,
-    drawDrillOverlay,
-    drawRewardOverlay,
-    drawStarterOverlay,
-  } = app;
+  Object.assign(app, {
+    defaultState,
+    saveMeta,
+    resetRun,
+    commitRunName,
+  });
 
   function openRenameMode() {
     state.rename.active = true;
@@ -568,31 +391,6 @@ import {
         : "Name this run now. The name will be attached when you finish.",
       "player"
     );
-  }
-
-  function commitRunName() {
-    const nextName = state.rename.text.trim() || "anon";
-    state.runName = nextName.slice(0, 20);
-    state.rename.active = false;
-    state.rename.text = "";
-    if (state.runComplete) {
-      applyLeaderboard(
-        state.leaderboard.map((entry) => {
-          if (entry.id !== state.runId) {
-            return entry;
-          }
-          return Object.assign({}, entry, { name: state.runName });
-        })
-      );
-      void renameRunOnApi(state.runName).then((result) => {
-        if (result !== true) {
-          setMessage(`Run name saved locally as ${state.runName}, but public leaderboard rename failed: ${result}`, "player");
-        }
-      });
-      setMessage(`Run name saved as ${state.runName}. Use :q for a new randomized run.`, "player");
-      return;
-    }
-    setMessage(`This run is now named ${state.runName}.`, "player");
   }
 
   function setMessage(message, portrait) {
@@ -623,68 +421,6 @@ import {
     normalizeKey,
     handleTreeKey,
   } = app;
-
-  function mapRows(mapName) {
-    if (state.randomizedMaps && state.randomizedMaps[mapName]) {
-      return state.randomizedMaps[mapName];
-    }
-    return MAPS[mapName].rows;
-  }
-
-  // Overworld map queries and movement helpers.
-  function tileAt(mapName, x, y) {
-    const rows = mapRows(mapName);
-    if (y < 0 || y >= rows.length || x < 0 || x >= rows[0].length) {
-      return "#";
-    }
-    return rows[y][x];
-  }
-
-  function isWalkable(tile) {
-    return ".,=HJKLEDRT".includes(tile);
-  }
-
-  function isGateTile(tile) {
-    return "EDRT".includes(tile);
-  }
-
-  function mapOffset() {
-    const rows = mapRows(state.map);
-    return {
-      x: Math.floor((SCREEN_WIDTH - rows[0].length * TILE_SIZE) / 2),
-      y: VIEW_TOP + Math.floor((VIEW_HEIGHT - rows.length * TILE_SIZE) / 2),
-    };
-  }
-
-  function directionVector(direction) {
-    if (direction === "left") {
-      return { dx: -1, dy: 0 };
-    }
-    if (direction === "right") {
-      return { dx: 1, dy: 0 };
-    }
-    if (direction === "up") {
-      return { dx: 0, dy: -1 };
-    }
-    return { dx: 0, dy: 1 };
-  }
-
-  function reverseDirection(direction) {
-    if (direction === "left") {
-      return "right";
-    }
-    if (direction === "right") {
-      return "left";
-    }
-    if (direction === "up") {
-      return "down";
-    }
-    return "up";
-  }
-
-  function monsterPalette(id) {
-    return SPECIES[id].palette;
-  }
 
   function setFx(kind, target, duration, options) {
     const now = performance.now();
@@ -784,6 +520,7 @@ import {
     isGateTile,
     directionVector,
     reverseDirection,
+    markHouseTrailPosition,
     openStarterSelect,
     syncFollowerTrail,
     pushFollowerStep,
@@ -803,247 +540,43 @@ import {
     interactAhead,
   } = app;
 
-  function recordMotion(key) {
-    state.lastMotion = key;
-  }
+  Object.assign(app, createGameMotionRuntime({
+    state,
+    controlUnlocked,
+    setMessage,
+    checkMilestones,
+    handleBattleKey,
+    tryMove,
+    interactAhead,
+    dash,
+    lineJump,
+    fileJump,
+    cycleParty,
+  }));
+  const {
+    parseActionKey,
+    useMotion,
+  } = app;
 
-  function compositeAction(key, count) {
-    return count > 1 ? `${count}${key}` : key;
-  }
+  Object.assign(app, createDrillRuntime(app));
+  const {
+    handleDrillKey,
+    handleDrillPromptKey,
+    handleDrillInsertKey,
+  } = app;
 
-  function parseActionKey(key) {
-    const match = String(key).match(/^([1-9][0-9]*)([hjklwbe])$/);
-    if (!match) {
-      return { key, count: 1 };
-    }
-    return {
-      key: match[2],
-      count: Number(match[1]),
-    };
-  }
-
-  function lockedControlMessage(id) {
-    if (id === "word") {
-      return "Word motions unlock after Lesson 1, once you reach Word Meadow.";
-    }
-    if (id === "command") {
-      return "Command mode unlocks when you meet Mentor W.";
-    }
-    if (id === "line") {
-      return "0 and $ unlock in Lesson 3 at Line Ridge.";
-    }
-    if (id === "find") {
-      return "f, t, F, and T unlock in Lesson 5 at Finder Fen.";
-    }
-    if (id === "quick") {
-      return "x becomes Quick Jab after Coach Buffer teaches it.";
-    }
-    if (id === "count") {
-      return "Numeric prefixes unlock in Lesson 4 at Count Grove.";
-    }
-    if (id === "cycle") {
-      return "[ and ] unlock when Coach Buffer joins the lesson.";
-    }
-    if (id === "file") {
-      return "gg and G unlock in the final Macro Tower lesson.";
-    }
-    if (id === "repeat") {
-      return ". unlocks after Lesson 2 is complete.";
-    }
-    return "That control is not unlocked yet.";
-  }
-
-  // High-level overworld motion routing. Lower-level drill and battle input
-  // live in their own runtimes.
-  function useMotion(key, fromRepeat) {
-    if (state.mode === "battle") {
-      handleBattleKey(key);
-      return;
-    }
-
-    const parsedAction = parseActionKey(key);
-    const actionKey = parsedAction.key;
-    const actionCount = parsedAction.count;
-
-    if (actionKey === "o") {
-      state.tree.open = !state.tree.open;
-      state.tree.focus = "sections";
-      state.tree.itemIndex = 0;
-      setMessage(state.tree.open ? "VimTree opened. Use j/k and Enter." : "VimTree closed.");
-      return;
-    }
-
-    if (actionKey === "h") {
-      let moved = false;
-      for (let step = 0; step < actionCount; step += 1) {
-        if (!tryMove(-1, 0, "left", step > 0)) {
-          break;
-        }
-        moved = true;
-      }
-      if (moved && actionCount >= 2) {
-        state.flags.usedCountMove = true;
-        checkMilestones();
-      }
-      if (moved && !fromRepeat) {
-        recordMotion(compositeAction("h", actionCount));
-      }
-      return;
-    }
-    if (actionKey === "j") {
-      let moved = false;
-      for (let step = 0; step < actionCount; step += 1) {
-        if (!tryMove(0, 1, "down", step > 0)) {
-          break;
-        }
-        moved = true;
-      }
-      if (moved && actionCount >= 2) {
-        state.flags.usedCountMove = true;
-        checkMilestones();
-      }
-      if (moved && !fromRepeat) {
-        recordMotion(compositeAction("j", actionCount));
-      }
-      return;
-    }
-    if (actionKey === "k") {
-      let moved = false;
-      for (let step = 0; step < actionCount; step += 1) {
-        if (!tryMove(0, -1, "up", step > 0)) {
-          break;
-        }
-        moved = true;
-      }
-      if (moved && actionCount >= 2) {
-        state.flags.usedCountMove = true;
-        checkMilestones();
-      }
-      if (moved && !fromRepeat) {
-        recordMotion(compositeAction("k", actionCount));
-      }
-      return;
-    }
-    if (actionKey === "l") {
-      let moved = false;
-      for (let step = 0; step < actionCount; step += 1) {
-        if (!tryMove(1, 0, "right", step > 0)) {
-          break;
-        }
-        moved = true;
-      }
-      if (moved && actionCount >= 2) {
-        state.flags.usedCountMove = true;
-        checkMilestones();
-      }
-      if (moved && !fromRepeat) {
-        recordMotion(compositeAction("l", actionCount));
-      }
-      return;
-    }
-    if (actionKey === "i") {
-      interactAhead();
-      return;
-    }
-    if (actionKey === ":") {
-      if (!controlUnlocked("command")) {
-        setMessage(lockedControlMessage("command"));
-        return;
-      }
-      state.command.active = true;
-      state.command.text = "";
-      return;
-    }
-    if (actionKey === "w") {
-      if (!controlUnlocked("word")) {
-        setMessage(lockedControlMessage("word"));
-        return;
-      }
-      dash(state.facing, false, actionCount);
-      if (!fromRepeat) {
-        recordMotion(compositeAction("w", actionCount));
-      }
-      return;
-    }
-    if (actionKey === "b") {
-      if (!controlUnlocked("word")) {
-        setMessage(lockedControlMessage("word"));
-        return;
-      }
-      dash(state.facing, true, actionCount);
-      if (!fromRepeat) {
-        recordMotion(compositeAction("b", actionCount));
-      }
-      return;
-    }
-    if (actionKey === "0") {
-      if (!controlUnlocked("line")) {
-        setMessage(lockedControlMessage("line"));
-        return;
-      }
-      lineJump("left");
-      if (!fromRepeat) {
-        recordMotion("0");
-      }
-      return;
-    }
-    if (actionKey === "$") {
-      if (!controlUnlocked("line")) {
-        setMessage(lockedControlMessage("line"));
-        return;
-      }
-      lineJump("right");
-      if (!fromRepeat) {
-        recordMotion("$");
-      }
-      return;
-    }
-    if (actionKey === "gg") {
-      if (!controlUnlocked("file")) {
-        setMessage(lockedControlMessage("file"));
-        return;
-      }
-      fileJump("up");
-      if (!fromRepeat) {
-        recordMotion("gg");
-      }
-      return;
-    }
-    if (actionKey === "G") {
-      if (!controlUnlocked("file")) {
-        setMessage(lockedControlMessage("file"));
-        return;
-      }
-      fileJump("down");
-      if (!fromRepeat) {
-        recordMotion("G");
-      }
-      return;
-    }
-    if (actionKey === "[" || actionKey === "]") {
-      if (!controlUnlocked("cycle")) {
-        setMessage(lockedControlMessage("cycle"));
-        return;
-      }
-      if (cycleParty(actionKey === "[" ? -1 : 1, false) && !fromRepeat) {
-        recordMotion(actionKey);
-      }
-      return;
-    }
-    if (actionKey === ".") {
-      if (!controlUnlocked("repeat")) {
-        setMessage(lockedControlMessage("repeat"));
-        return;
-      }
-      if (!state.lastMotion) {
-        setMessage("There is no previous motion to repeat.");
-        return;
-      }
-      useMotion(state.lastMotion, true);
-      return;
-    }
-    setMessage("Unknown key. Try h j k l, i, or :help.");
-  }
+  Object.assign(app, createScenes(app));
+  const {
+    drawOverworld,
+    drawRunStrip,
+    drawBattle,
+    drawDialogue,
+    drawEncounterTransition,
+    drawTreeOverlay,
+    drawDrillOverlay,
+    drawRewardOverlay,
+    drawStarterOverlay,
+  } = app;
 
   // Main render loop delegates drawing to scenes.js.
   function render(time) {

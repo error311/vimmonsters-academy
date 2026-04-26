@@ -11,12 +11,19 @@ VimMonsters Academy is meant to be both a Vim training game and a readable learn
   - `src/content.js`: game content and editable surfaces
   - `src/state.js`: state helpers and run setup
   - `src/drills.js` and `src/drill-runtime.js`: lesson content and drill behavior
-  - `src/battle.js` and `src/battle-challenges.js`: battle flow, mechanics, and authored battle drills
+  - `src/battle.js`: top-level battle composition and battle input routing
+  - `src/battle-flow.js`: encounter setup, party switching, defeat reset, and finish/reward handling
+  - `src/battle-techniques.js`: player techniques, VimOrb throws, catch resolution, and battle control lists
+  - `src/battle-enemy.js`: enemy status pressure, cooldowns, and enemy-turn move resolution
+  - `src/battle-challenge-runtime.js` and `src/battle-challenges.js`: battle mini-drill runtime behavior and authored challenge templates
   - `src/input.js`: command mode, rename mode, VimTree, and key normalization
   - `src/overworld.js`: overworld movement, gate transitions, and field interactions
   - `src/scenes.js`, `src/scene-tree.js`, `src/scene-drill.js`, and `src/scene-battle.js`: rendering and overlay layout
   - `src/progression.js`: lesson completion, objective text, and gate/control messaging
-  - `src/game.js`: orchestration and system wiring
+  - `src/game-run-runtime.js`: run/session lifecycle, leaderboard sync, and completed-run flow
+  - `src/game-world-helpers.js`: house-route helpers plus shared map/tile and world-coordinate helpers
+  - `src/game-motion-runtime.js`: overworld motion routing, repeat/count behavior, and locked-control messaging
+  - `src/game.js`: top-level orchestration and system wiring
 
 ## Local Setup
 
@@ -56,6 +63,7 @@ Run:
 ```bash
 npm run build:assets
 npm run build:readme-media
+npm test
 npm run lint
 npm run check
 npm run smoke
@@ -104,6 +112,13 @@ npm run build:assets
 - Use ASCII unless the file already needs something else.
 - Keep comments short and only where they help a learner.
 - Do not collapse multiple systems back into `src/game.js` unless there is a strong reason.
+- Keep run and leaderboard flow in `src/game-run-runtime.js` unless the change truly belongs in the top-level bootstrap.
+- Keep shared map/tile and house-route helpers in `src/game-world-helpers.js` unless the change truly belongs in a specific runtime.
+- Keep overworld motion routing and locked-control text in `src/game-motion-runtime.js` unless the change truly belongs in a different runtime.
+- Keep encounter setup, party switching, defeat reset, and finish/reward flow in `src/battle-flow.js` unless the change truly belongs in a different battle runtime.
+- Keep player techniques, VimOrb throws, and catch resolution in `src/battle-techniques.js` unless the change truly belongs in a different battle runtime.
+- Keep enemy status pressure, cooldowns, and enemy-turn move resolution in `src/battle-enemy.js` unless the change truly belongs in a different battle runtime.
+- Keep battle mini-drill cursor flow and motion resolution in `src/battle-challenge-runtime.js` unless the change truly belongs in broader battle flow.
 - If a change touches gameplay rules, explain the player-facing behavior in the PR.
 
 ## Bug Reports

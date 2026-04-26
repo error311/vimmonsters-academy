@@ -36,21 +36,8 @@ export function createOverworldRuntime(deps) {
     groveComplete,
     fenComplete,
     studioComplete,
+    markHouseTrailPosition,
   } = deps;
-
-  function markHouseTrailPosition(x, y) {
-    if (state.map !== "house") {
-      return;
-    }
-    const key = cellKey(x, y);
-    const allowed = houseRouteKeys(houseStageIndex());
-    if (!allowed.has(key) && !state.houseTrailVisited.includes(key)) {
-      return;
-    }
-    if (!state.houseTrailVisited.includes(key)) {
-      state.houseTrailVisited.push(key);
-    }
-  }
 
   function signText() {
     const facing = directionVector(state.facing);

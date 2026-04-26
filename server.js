@@ -76,23 +76,38 @@ function readJsonBody(request) {
   return new Promise((resolve, reject) => {
     let size = 0;
     let body = "";
+    let settled = false;
     request.on("data", (chunk) => {
+      if (settled) {
+        return;
+      }
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
+        settled = true;
         reject(new Error("BODY_TOO_LARGE"));
-        request.destroy();
         return;
       }
       body += chunk;
     });
     request.on("end", () => {
+      if (settled) {
+        return;
+      }
       try {
+        settled = true;
         resolve(JSON.parse(body || "{}"));
       } catch {
+        settled = true;
         reject(new Error("INVALID_JSON"));
       }
     });
-    request.on("error", reject);
+    request.on("error", (error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(error);
+    });
   });
 }
 

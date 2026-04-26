@@ -33,5 +33,8 @@ jobs:
       - name: Syntax check
         run: npm run check
 
+      - name: Unit tests
+        run: npm test
+
       - name: Runtime smoke
         run: npm run smoke

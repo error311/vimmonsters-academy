@@ -20,6 +20,9 @@ If you are new to the repo, read files in this order:
 3. [src/content.js](src/content.js)
 4. [src/drills.js](src/drills.js)
 5. [src/game.js](src/game.js)
+6. [src/game-run-runtime.js](src/game-run-runtime.js)
+7. [src/game-world-helpers.js](src/game-world-helpers.js)
+8. [src/game-motion-runtime.js](src/game-motion-runtime.js)
 
 That path gets you to editable surfaces first, then the orchestration layer.
 
@@ -34,7 +37,15 @@ That path gets you to editable surfaces first, then the orchestration layer.
 - [src/drill-runtime.js](src/drill-runtime.js)
   - drill cursor, prompt flow, insert flow, step completion
 - [src/battle.js](src/battle.js)
-  - battle rules, enemy turns, catches, battle mini-drills
+  - top-level battle composition and battle input routing
+- [src/battle-flow.js](src/battle-flow.js)
+  - encounter setup, party switching, defeat reset, and finish/reward flow
+- [src/battle-techniques.js](src/battle-techniques.js)
+  - player techniques, VimOrb throws, catch resolution, and battle control lists
+- [src/battle-enemy.js](src/battle-enemy.js)
+  - enemy status pressure, cooldowns, and enemy-turn move resolution
+- [src/battle-challenge-runtime.js](src/battle-challenge-runtime.js)
+  - battle mini-drill cursor flow, motion parsing, and challenge resolution
 - [src/battle-challenges.js](src/battle-challenges.js)
   - authored battle mini-drill templates
 - [src/input.js](src/input.js)
@@ -51,8 +62,14 @@ That path gets you to editable surfaces first, then the orchestration layer.
   - battle scene composition, battle command window, and battle mini-drill overlay rendering
 - [src/progression.js](src/progression.js)
   - lesson completion, objective text, gate text, and control unlock rules
+- [src/game-run-runtime.js](src/game-run-runtime.js)
+  - run setup/reset, leaderboard sync, rename submission, and completed-run submission flow
+- [src/game-world-helpers.js](src/game-world-helpers.js)
+  - house lesson route helpers, map/tile queries, map offsets, and shared world-coordinate utilities
+- [src/game-motion-runtime.js](src/game-motion-runtime.js)
+  - overworld motion routing, repeat/count behavior, and locked-control messaging
 - [src/game.js](src/game.js)
-  - startup, mode transitions, scoring, and dependency wiring
+  - startup, mode transitions, shared dependency wiring, render loop, and browser input registration
 - [server.js](server.js)
   - static hosting plus public leaderboard API
 
@@ -76,7 +93,7 @@ Touch:
 
 - [src/content.js](src/content.js) for lesson copy
 - [src/drills.js](src/drills.js) for the drill
-- [src/game.js](src/game.js) for progression, gates, and messaging
+- [src/game.js](src/game.js) for progression wiring, gates, and high-level messaging
 - optionally [src/state.js](src/state.js) if you need a new unlock flag
 
 ### Add a map
@@ -111,11 +128,13 @@ Touch:
 
 - [server.js](server.js)
 - [src/persistence.js](src/persistence.js)
+- [src/game-run-runtime.js](src/game-run-runtime.js)
+- [src/game-world-helpers.js](src/game-world-helpers.js) if the change depends on map/tile helper behavior
 - sometimes [src/game.js](src/game.js)
 
 ## Why `game.js` Still Exists
 
-[src/game.js](src/game.js) is still the largest glue file. That is intentional.
+[src/game.js](src/game.js) is still the top-level glue file. That is intentional.
 
 It owns:
 
@@ -124,8 +143,10 @@ It owns:
 - high-level progression
 - overworld interaction routing
 - mode transitions
+- render loop
+- browser input registration
 
-Lower-level systems already live in `battle.js`, `drill-runtime.js`, `input.js`, `state.js`, and `scenes.js`. Most contributors should not need to touch `game.js` unless they are changing progression rules or connecting systems together.
+Lower-level systems already live in `battle.js`, `battle-flow.js`, `battle-techniques.js`, `battle-enemy.js`, `battle-challenge-runtime.js`, `drill-runtime.js`, `input.js`, `state.js`, `scenes.js`, `game-run-runtime.js`, `game-world-helpers.js`, and `game-motion-runtime.js`. Most contributors should not need to touch `game.js` unless they are changing progression rules, render wiring, or connecting systems together.
 
 ## What To Avoid
 
@@ -139,6 +160,7 @@ Before opening a PR:
 
 ```bash
 npm run build:assets
+npm test
 npm run lint
 npm run check
 npm run smoke

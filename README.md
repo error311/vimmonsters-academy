@@ -143,6 +143,7 @@ Use this when you are editing game logic, content, sprites, or UI. Re-run `npm r
 cd vimmonsters-academy
 npm install
 npm run build:assets
+npm test
 npm run build:readme-media
 npm run lint
 npm run check
@@ -195,11 +196,18 @@ Use [TESTING.md](TESTING.md) for the manual runtime checklist after gameplay, UI
 ## Project Structure
 
 - [src/content.js](src/content.js): editable game content and modding surface
-- [src/game.js](src/game.js): main orchestration and system wiring
+- [src/game.js](src/game.js): main orchestration, shared wiring, render loop, and browser event setup
+- [src/game-run-runtime.js](src/game-run-runtime.js): run/session lifecycle, leaderboard sync, and completed-run submission flow
+- [src/game-world-helpers.js](src/game-world-helpers.js): house-route progress helpers, map/tile queries, and shared world-coordinate utilities
+- [src/game-motion-runtime.js](src/game-motion-runtime.js): overworld motion routing, repeat/count behavior, and locked-control messaging
 - [src/state.js](src/state.js): run setup, state helpers, map randomization, and monster creation
 - [src/drills.js](src/drills.js): lesson drill definitions and drill hydration
 - [src/drill-runtime.js](src/drill-runtime.js): drill cursor, prompt, and insert-mode state machine
-- [src/battle.js](src/battle.js): encounters, battles, catches, and party switching flow
+- [src/battle.js](src/battle.js): top-level battle composition and battle input routing
+- [src/battle-flow.js](src/battle-flow.js): encounter setup, party switching, defeat reset, and finish/reward flow
+- [src/battle-techniques.js](src/battle-techniques.js): player techniques, VimOrb throws, and catch resolution
+- [src/battle-enemy.js](src/battle-enemy.js): enemy status pressure, cooldowns, and enemy-turn move resolution
+- [src/battle-challenge-runtime.js](src/battle-challenge-runtime.js): battle mini-drill cursor flow, motion handling, and challenge resolution
 - [src/battle-challenges.js](src/battle-challenges.js): authored battle mini-drill templates
 - [src/input.js](src/input.js): command mode, rename mode, VimTree navigation, and key normalization
 - [src/overworld.js](src/overworld.js): overworld movement, gate transitions, and NPC/sign interactions
@@ -247,7 +255,7 @@ The short version:
 
 - keep the code readable for learners
 - keep the game friendly for new Vim users
-- run `npm run build:assets`, `npm run build:readme-media`, `npm run lint`, `npm run check`, and `npm run smoke`
+- run `npm run build:assets`, `npm test`, `npm run build:readme-media`, `npm run lint`, `npm run check`, and `npm run smoke`
 - use [TESTING.md](TESTING.md) after gameplay or UI changes
 
 ## GitHub Automation
@@ -255,7 +263,7 @@ The short version:
 The repo now includes:
 
 - issue templates in [.github/ISSUE_TEMPLATE](.github/ISSUE_TEMPLATE)
-- CI in [.github/workflows/ci.yml](.github/workflows/ci.yml) for asset build, lint, syntax check, and runtime smoke
+- CI in [.github/workflows/ci.yml](.github/workflows/ci.yml) for asset build, unit tests, lint, syntax check, and runtime smoke
 - Docker build verification in [.github/workflows/docker.yml](.github/workflows/docker.yml)
 
 ## Repo Readiness
@@ -264,7 +272,7 @@ For a clean public repo, make sure each change set does these before merge:
 
 - update docs if controls, lessons, or run steps changed
 - rebuild generated art if sprite definitions changed
-- run `npm run lint`, `npm run check`, and `npm run smoke`
+- run `npm test`, `npm run lint`, `npm run check`, and `npm run smoke`
 - use [TESTING.md](TESTING.md) for gameplay or UI changes
 - include screenshots or GIFs in the PR if the visible UI changed
 
@@ -272,6 +280,13 @@ For a clean public repo, make sure each change set does these before merge:
 
 - the leaderboard is JSON-backed through [server.js](server.js)
 - public competition runs now use server-issued run tickets plus append-only leaderboard submission
-- the game uses browser ES modules and a shared runtime `app` object in [src/game.js](src/game.js)
+- the game uses browser ES modules and a shared runtime `app` object centered in [src/game.js](src/game.js)
+- run and leaderboard orchestration now live in [src/game-run-runtime.js](src/game-run-runtime.js), which keeps that slice out of the main bootstrap file
+- house-route and map/tile helpers now live in [src/game-world-helpers.js](src/game-world-helpers.js), which keeps those cross-cutting helpers out of the bootstrap file too
+- overworld motion routing and locked-control messaging now live in [src/game-motion-runtime.js](src/game-motion-runtime.js), which keeps input-to-world behavior out of the bootstrap file too
+- encounter setup, party switching, defeat reset, and finish/reward handling now live in [src/battle-flow.js](src/battle-flow.js), which keeps that lifecycle logic out of the main battle runtime
+- player techniques, VimOrb throws, and catch resolution now live in [src/battle-techniques.js](src/battle-techniques.js), which keeps that player-action logic out of the coordinator
+- enemy status pressure, cooldowns, and enemy-turn move resolution now live in [src/battle-enemy.js](src/battle-enemy.js), which keeps enemy behavior out of the coordinator too
+- battle mini-drill cursor flow and motion resolution now live in [src/battle-challenge-runtime.js](src/battle-challenge-runtime.js), which keeps that challenge state machine out of the broader battle runtime
 - the runtime is split so learners can study one system at a time instead of reading a single giant file first
 - `docs/media` now contains the repository screenshots used in the README preview section

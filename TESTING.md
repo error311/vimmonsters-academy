@@ -5,6 +5,7 @@ Use this checklist after any gameplay or refactor change.
 Also run:
 
 ```bash
+npm test
 npm run smoke
 ```
 
@@ -61,3 +62,4 @@ npm run smoke
 
 - If movement stops entirely, check the browser console first. A render crash blocks the game loop.
 - If a split-module refactor lands, run `npm run check` before opening the browser.
+- If a runtime refactor lands, run `npm test` before trusting the manual pass.
